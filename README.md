@@ -75,6 +75,7 @@ Simple_INA238 ina238;
 #define DelayBetweenDisplayingReadings 1000 //ms
 #define ina238Address 0x40
 
+// your function that is called when readings are ready
 void ShowReadings(){
   static int ReadingCount = 0;
   float current = ina238.Current();      // in Amps
@@ -94,20 +95,25 @@ void setup() {
   Serial.begin(115200);
   Serial.println(F("\n\nSimple_INA238 Volt Amp Meter"));
 
-  if(!ina238.begin(SDA_PIN, SCL_PIN).SetAddress(ina238Address).Check_Address()){
+  if(!ina238.begin(SDA_PIN, SCL_PIN).SetAddress(ina238Address).Check_Address()){ // Comm Startup and Check
     Serial.println(F("Simple_INA238 failed to find device! \n !!! STOP !!!"));
     while (1);
   }
 
+// Simple_Config() uses the default settings of the INA238 and initializes the
+// reading mode to trigger when Voltage and Current readings are complete
   ina238.Simple_Config(Maximum_Expected_Current,Shunt_Resistor_Value);
+
+// When readings are ready call this function example "ShowReadings"
   ina238.setOnConversionReadyCallback(ShowReadings);
   Serial.println("INA238 initialized!");
 }
 
 void loop() {
+// place the Alert() functin within your loop() functin to handle all the processes of the INA238 
+// this has an optional non blocking delay that will skip checking until the timer has elapsed.
   ina238.Alert(DelayBetweenDisplayingReadings); // Callbacks are triggered withing this alert function
 }
-
 ```
 
 - **`ina238.begin(SDA_PIN, SCL_PIN).SetAddress(ina238Address).Check_Address()`**: Initializes the sensor at the specified I2C address and performs a connection test.  
