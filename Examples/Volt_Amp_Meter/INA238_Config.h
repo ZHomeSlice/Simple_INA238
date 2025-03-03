@@ -84,7 +84,7 @@
  */
  
  #define INA238Address VA_Meter.SetAddressWithinRange(0x40, 0x4F).GetAddress() // finds the address on the I2C bus by scanning for the device
- // #define Address 0X40 // Fixes the address
+ // #define INA238Address 0X40 // Fixes the address
  
  #define Shunt_Resistor 0.002f // This is the value of the shunt resistor between the source and load of the INA-238 30Amp board
  #define MaxExpectedCurrent 30 // This is used to calculate many of the values including sensitivity. Set this to the maximum expected current during normal operations of the monitored device.

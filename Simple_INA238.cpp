@@ -53,20 +53,33 @@ Simple_INA238 &Simple_INA238::begin(int sdaPin, int sclPin)
 
 Simple_INA238 &Simple_INA238::SetAddressWithinRange(uint8_t StartingAddress, uint8_t Length)
 {
-    if (StartingAddress >= Length) {
+    if (StartingAddress >= Length)
+    {
         SetAddress(StartingAddress);
         return *this;
     }
     uint16_t deviceIDCheck;
-    do {
-    SetAddress(Find_Address(StartingAddress, Length));
-    R_DEVICE_ID(&deviceIDCheck);
-    if (deviceID == deviceIDCheck) return *this; // Device ID Matches We have Found the correct address
-    StartingAddress ++;
-    } while(StartingAddress <= Length);
-    SetAddress(CHIP_ID);
+    do
+    {
+        if (StartingAddress == 0x1)
+        {
+            SetAddress(CHIP_ID); // fail to default address
+            return *this;
+        }
+        StartingAddress = Find_Address(StartingAddress, Length);
+        if (StartingAddress == 0)
+        {
+            SetAddress(CHIP_ID); // fail to default address
+            return *this;
+        }
+        SetAddress(StartingAddress);
+        if ((R_DEVICE_ID(&deviceIDCheck).Success()) && (DEVICE_ID == deviceIDCheck))
+            return *this; // Device ID Matches We have Found the correct address
+        StartingAddress++;
+    } while (StartingAddress <= Length);
+    SetAddress(CHIP_ID); //  fail to default address
     return *this;
-} 
+}
 
 /**
 @brief      Test to be sure we have communication to the MPU
@@ -74,28 +87,35 @@ Verbose = true - output Results to serial port
 returns 1 on success
 stops or returns 0 on fail
 */
-uint8_t Simple_INA238::TestConnection(bool Verbose)
+bool Simple_INA238::TestConnection(bool V)
 {
-    VerboseOutput = Verbose;
+    Verbose = V;
+    Simple_Wire::SetVerbose(V);
     uint16_t deviceIDCheck;
-    if (Check_Address(GetAddress()))
-    { // Gets the address and then tests communication
-        R_DEVICE_ID(&deviceIDCheck);
-        if (Verbose)
+    if (Check_Address())
+    {
+        if (R_DEVICE_ID(&deviceIDCheck).Success())
         {
-            Serial.print("Found INA238 at: 0x");
-            Serial.println(GetAddress(), HEX);
-            Serial.print("INA238 Chip ID: 0x");
-            Serial.println(deviceID, HEX);
+            ConectionVerified = (deviceID == deviceIDCheck) ? true : false;
+            if (Verbose)
+            {
+                if(ConectionVerified){
+                    Serial.print("Found INA238 at: 0x");
+                    Serial.println(GetAddress(), HEX);
+                    Serial.print("INA238 Device ID: 0x");
+                    Serial.println(deviceIDCheck, HEX);
+                } else {
+                    Serial.print("Found a device at: 0x");
+                    Serial.println(GetAddress(), HEX);
+                    Serial.print("The Device ID didn't match : 0x2381U <> 0x");
+                    Serial.println(deviceIDCheck, HEX);   
+                }
+            }
+            return ConectionVerified;
         }
-        ConectionVerified = (deviceID == deviceIDCheck) ? 1 : 0;
-        return ConectionVerified;
     }
-    else if (Verbose)
-        I2C_Scanner(); // Address Failed so Lets scan for all addresses on the i2c port
-    return -1;
+    return false;
 }
-
 
 Simple_INA238 &Simple_INA238::Reset()
 {
@@ -136,10 +156,12 @@ Simple_INA238 &Simple_INA238::CONFIG(uint16_t CONVDLY, uint16_t ADCRANGE)
 //  CONFIG_CONVDLY_MS(ms)    // Sets the Delay for initial ADC conversion in steps of 2 ms rounded down 0 ms to 510 ms
 //  usage example 1 CONFIG_CONVDLY(CONFIG_CONVDLY(50)) sets the Conversion delay to 100ms
 //  usage example 2 CONFIG_CONVDLY(CONFIG_CONVDLY_MS(100)) sets the Conversion delay to 100ms
-Simple_INA238 &Simple_INA238::CONFIG_CONVDLY_Value(uint16_t CONVDLY){
+Simple_INA238 &Simple_INA238::CONFIG_CONVDLY_Value(uint16_t CONVDLY)
+{
     return CONFIG_CONVDLY(CONFIG_CONVDLY_Val(CONVDLY));
 }
-Simple_INA238 &Simple_INA238::CONFIG_CONVDLY_Miliseconds(uint16_t MiliSeconds ){
+Simple_INA238 &Simple_INA238::CONFIG_CONVDLY_Miliseconds(uint16_t MiliSeconds)
+{
     return CONFIG_CONVDLY(CONFIG_CONVDLY_MS(MiliSeconds));
 }
 Simple_INA238 &Simple_INA238::CONFIG_CONVDLY(uint16_t CONVDLY)
@@ -243,10 +265,10 @@ Simple_INA238 &Simple_INA238::CalculateShuntCal(float rShunt, float maxExpectedC
     // Compute CURRENT_LSB correctly: using 2^15 = 32768, not 2e15
     if (adcRange == 0xff)
     {
-        float SVD= 0.0f;
-        SVD =  SHUNT_VOLTAGE_DROP(maxExpectedCurrent, ShuntResistance);
-        adcRange =  (SVD > ADC_RANGE_1H_Max) ?  CONFIG_ADCRANGE_0H_163_84mV : CONFIG_ADCRANGE_1H_40_96mV;
-        CONFIG_ADCRANGE(adcRange);                                 // Set the Value
+        float SVD = 0.0f;
+        SVD = SHUNT_VOLTAGE_DROP(maxExpectedCurrent, ShuntResistance);
+        adcRange = (SVD > ADC_RANGE_1H_Max) ? CONFIG_ADCRANGE_0H_163_84mV : CONFIG_ADCRANGE_1H_40_96mV;
+        CONFIG_ADCRANGE(adcRange); // Set the Value
         if (Verbose)
         {
             Serial.print("ADC Calculated Shunt Max Voltgae: ");
@@ -286,8 +308,6 @@ Simple_INA238 &Simple_INA238::CalculateShuntCal(float rShunt, float maxExpectedC
     return *this;
 }
 
-
-
 Simple_INA238 &Simple_INA238::SetMaxExpectedCurrent(float maxExpectedCurrent)
 {
     _maxExpectedCurrent = maxExpectedCurrent;
@@ -298,7 +318,6 @@ Simple_INA238 &Simple_INA238::SetMaxExpectedCurrent(float maxExpectedCurrent)
     Serial.println(current_lsb, 10);
     return *this;
 }
-
 
 float Simple_INA238::mVoltageShunt()
 {
@@ -369,8 +388,6 @@ Simple_INA238 &Simple_INA238::Power(float &Wats)
     return *this;
 }
 
-
-
 // Private helper function in to store the values in W_DIAG_ALR()
 Simple_INA238 &Simple_INA238::updateDIAGField(uint16_t mask, uint16_t setting)
 {
@@ -414,14 +431,13 @@ Simple_INA238 &Simple_INA238::DIAG_Alert_Pin_Polarity(bool State)
 uint16_t Simple_INA238::Alert(uint32_t DelayBetweenChecks)
 {
     static unsigned long SpamTimer;
-    if ((millis() - SpamTimer) >= (DelayBetweenChecks)) {
-      SpamTimer = millis();
+    if ((millis() - SpamTimer) >= (DelayBetweenChecks))
+    {
+        SpamTimer = millis();
         return Alert();
     }
     return 0;
 }
-
-
 
 uint16_t Simple_INA238::Alert()
 {
@@ -429,7 +445,7 @@ uint16_t Simple_INA238::Alert()
     uint32_t mask = DIAG_ALRT_MATHOF_OVERFLOW | DIAG_ALRT_TMPOL_OVER_TEMP | DIAG_ALRT_SHNTOL_OVER_SHUNT | DIAG_ALRT_BUSOL_OVER_BUS | DIAG_ALRT_BUSUL_UNDER_BUS | DIAG_ALRT_POL_OVER_POWER | DIAG_ALRT_CNVRF_READY | DIAG_ALRT_MEMSTAT_CHECKSUM_OK;
     uint32_t alarmMask = DIAG_ALRT_MATHOF_OVERFLOW | DIAG_ALRT_TMPOL_OVER_TEMP | DIAG_ALRT_SHNTOL_OVER_SHUNT | DIAG_ALRT_BUSOL_OVER_BUS | DIAG_ALRT_BUSUL_UNDER_BUS | DIAG_ALRT_POL_OVER_POWER | DIAG_ALRT_MEMSTAT_CHECKSUM_OK;
     uint32_t alarmMaskSoftware = DIAG_ALRT_MATHOF_OVERFLOW | DIAG_ALRT_MEMSTAT_CHECKSUM_OK;
-    uint32_t alarmMaskSensors = DIAG_ALRT_TMPOL_OVER_TEMP | DIAG_ALRT_SHNTOL_OVER_SHUNT | DIAG_ALRT_SHNTUL_UNDER_SHUNT| DIAG_ALRT_BUSOL_OVER_BUS | DIAG_ALRT_BUSUL_UNDER_BUS | DIAG_ALRT_POL_OVER_POWER;
+    uint32_t alarmMaskSensors = DIAG_ALRT_TMPOL_OVER_TEMP | DIAG_ALRT_SHNTOL_OVER_SHUNT | DIAG_ALRT_SHNTUL_UNDER_SHUNT | DIAG_ALRT_BUSOL_OVER_BUS | DIAG_ALRT_BUSUL_UNDER_BUS | DIAG_ALRT_POL_OVER_POWER;
     LastAlert &= ((mask)); // Clears all other bits
     LastAlert ^= (1 << 0); // Invert Bit zero as it is 1 when it is in a normal or ok state (see Table 7-13. DIAG_ALRT Register Field Descriptions in Datasheet)
 
@@ -520,7 +536,6 @@ uint16_t Simple_INA238::Alert()
     }
     return LastAlert; // Return the modified data to only show alarms and all alarm values are 1
 }
-
 
 // General alarm callback
 Simple_INA238 &Simple_INA238::setOnAlarmCallbackFunction(OnAlarmCallback callback)

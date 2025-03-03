@@ -59,7 +59,7 @@ class Simple_INA238 : public Simple_Wire {
     float shuntCal = 0.0;
     float _maxExpectedCurrent = 0.0;
     bool ConectionVerified = false;
-    bool VerboseOutput = false;
+    bool Verbose = false;
     uint16_t LastAlert = 0;
 
     // Constructors:
@@ -68,10 +68,14 @@ class Simple_INA238 : public Simple_Wire {
 
     // Startup / Initialization:
     Simple_INA238 & begin(int sdaPin, int sclPin);
+    bool Simple_Begin(int sdaPin, int sclPin){return begin(sdaPin,  sclPin).SetAddressWithinRange().TestConnection();}; 
+    Simple_INA238 & SetAddress(uint8_t address = CHIP_ID){Simple_Wire::SetAddress(address); return *this;};// Sets the address
     Simple_INA238 & SetAddressWithinRange(uint8_t StartingAddress = CHIP_ID, uint8_t Length = (CHIP_ID + 0xFU));
-    Simple_INA238 & SetVerbose(bool Verbose = true){VerboseOutput = Verbose; return *this;};
-    uint8_t TestConnection(bool Verbose = false);
+    Simple_INA238 & SetVerbose(bool V = true){Simple_Wire::SetVerbose(V); Verbose = V; return *this;};
+    bool TestConnection(bool Verbose = true);// Tests the connection and verifies this is the correct chip.
+    Simple_INA238 &Delay(uint32_t ms){delay(ms);return *this;};
     // Configuration functions:
+    Simple_INA238 & Simple_Config(float MaxCurrent,float SResistor, uint16_t ADCMode =  ADC_CONFIG_MODE_CONTINUOUS_SHUNT_AND_BUS_VOLTAGE){Reset().CalculateShuntCal(SResistor, MaxCurrent).ADC_CONFIG_MODE(ADCMode); return *this;};   
     Simple_INA238 & Reset();
     Simple_INA238 & updateCONFIGField(uint16_t mask, uint16_t setting);
     Simple_INA238 & CONFIG(uint16_t CONVDLY, uint16_t ADCRANGE);
