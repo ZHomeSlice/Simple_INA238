@@ -1,7 +1,3 @@
-Below is a sample `README.md` you can adapt for your Arduino library. It highlights the INA238’s capabilities and shows how your library (Simple_INA238) makes it easy for Arduino users to tap into those features.
-
----
-
 # Simple_INA238
 
 **Easily Access the INA238’s Registers and Measured Values on Arduino**
