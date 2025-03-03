@@ -58,6 +58,7 @@ Here’s a quick example of how to initialize and read values from the INA238 us
 
 ```cpp
 #include <Wire.h>
+#include "Simple_Wire.h"
 #include "Simple_INA238.h"
 
 // Create an INA238 object
