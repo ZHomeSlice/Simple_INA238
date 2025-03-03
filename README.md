@@ -84,12 +84,14 @@ void ShowReadings(){
   float current = ina238.Current();      // in Amps
   float voltage = ina238.VoltageBus();   // in Volts
   float power   = ina238.Power();        // in Watts
-  float temp    = ina238.Temperature();  // in °C (die temp)
+  float tempC    = ina238.Temperature();  // in °C (die temp)
+  float tempF    = ina238.Temperature(true);  // in °F (die temp)
   Serial.print("\nReading# "); Serial.println(ReadingCount++);
   Serial.print("Current: "); Serial.print(current); Serial.println(" A");
   Serial.print("Voltage: "); Serial.print(voltage); Serial.println(" V");
   Serial.print("Power:   "); Serial.print(power);   Serial.println(" W");
-  Serial.print("Temp:    "); Serial.print(temp);    Serial.println(" °C");
+  Serial.print("Temp:    "); Serial.print(tempC);    Serial.println(" °C");
+  Serial.print("Temp:    "); Serial.print(tempF);    Serial.println(" °F");
 }
 
 void setup() {
@@ -112,12 +114,12 @@ void loop() {
 
 ```
 
-- **`ina238.begin(address)`**: Initializes the sensor at the specified I2C address.  
-- **`readCurrent()`**, **`readBusVoltage()`**, **`readPower()`**, **`readTemperature()`**: High-level functions to retrieve sensor data.
+- **`ina238.begin(SDA_PIN, SCL_PIN).SetAddress(ina238Address).Check_Address()`**: Initializes the sensor at the specified I2C address and performs a connection test.  
+- **`Current()`**, **`VoltageBus()`**, **`Power()`**, **`Temperature()`**: High-level functions to retrieve sensor data.
 
 ## Documentation
 
-- **Library Reference**: Check out the inline comments in the source files or the [Wiki](#) (if you have one) for detailed usage and advanced configuration.  
+- **Library Reference**: Check out the inline comments in the source files for detailed usage and advanced configuration.  
 - **INA238 Datasheet**: For a deep dive into register definitions and electrical characteristics, see the [official datasheet](https://www.ti.com/product/INA238).
 
 ## Contributing
