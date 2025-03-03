@@ -96,7 +96,7 @@ void setup() {
   Serial.println(F("\n\nSimple_INA238 Volt Amp Meter"));
 
   if(!ina238.begin(SDA_PIN, SCL_PIN).SetAddress(ina238Address).Check_Address()){ // Comm Startup and Check
-    Serial.println(F("Simple_INA238 failed to find device! \n !!! STOP !!!"));
+    Serial.println("Simple_INA238 failed to find device! \n !!! STOP !!!");
     while (1);
   }
 
