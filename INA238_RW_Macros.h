@@ -53,18 +53,22 @@
 #define CONFIG_ADCRANGE_1H_40_96mV  (0x1U << 4)     // 1h = ± 40.96 mV ADC Full Scale Range or a Resolution of 1.25 µV/LSB
 #define ADCC_RANGE_0H_LSB 0.000005f
 #define ADCC_RANGE_1H_LSB 0.00000125f
-#define ADC_RANGE_0H_Max 0.16384f //0h = ±163.84 mV ADC Full Scale Range of the Shunt Voltage Drop
+#define ADC_RANGE_0H_Max 0.16384f // 0h = ±163.84 mV ADC Full Scale Range of the Shunt Voltage Drop
 #define ADC_RANGE_1H_Max 0.04096f // 1h = ± 40.96 mV ADC Full Scale Range of the Shunt Voltage Drop
 
+#define VSHUNT_CONVERSION_FACTOR(ADC_RANGE) (((ADC_RANGE) != 0) ? ADCC_RANGE_0H_LSB : ADCC_RANGE_1H_LSB) 
 
-#define VSHUNT_CONVERSION_FACTOR(ADC_RANGE) (((ADC_RANGE) == 0) ? ADCC_RANGE_0H_LSB : ADCC_RANGE_1H_LSB) 
 #define VBUS_CONVERSION_FACTOR  0.003125f //  3.125 mV/LSB
 #define TEMP_CONVERSION_FACTOR  0.125f     // 125 m°C/LSB
 
-#define SCALING_FACTOR (819.2e6)  // Fixed scaling factor
-#define SHUNT_CAL_FIXED_VALUE(ADC_Range)  (SCALING_FACTOR * (((ADC_Range) == 0) ? 1 : 4))
-#define current_lsb(Maximum_Expected_Current) ((Maximum_Expected_Current) / 2e15)
-#define POWER_CONVERSION_FACTOR(Maximum_Expected_Current) ((Maximum_Expected_Current) / 2e15)
+#define SCALING_FACTOR (819200000)  // Fixed scaling factor 819.2e6 == 819,200,000
+#define ADC_Range_Multiplier(ADC_Range) (((ADC_Range) != 0) ? 1.0f : 4.0f)
+#define SHUNT_CAL_FIXED_VALUE(ADC_Range)  (SCALING_FACTOR * ADC_Range_Multiplier(ADC_Range))
+
+
+#define CURRENT_LSB_Cal(Maximum_Expected_Current) ((Maximum_Expected_Current) /  32768.0F)  // 32,768 == 2^15
+#define SHUNT_CAL(ADC_RANGE, Maximum_Expected_Current, R_SHUNT) (SHUNT_CAL_FIXED_VALUE(ADC_RANGE) * CURRENT_LSB_Cal(Maximum_Expected_Current) * (R_SHUNT))
+#define POWER_CONVERSION_FACTOR(Maximum_Expected_Current) (0.2 * CURRENT_LSB_Cal(Maximum_Expected_Current))
 
 // Calibration
 // ADC_RANGE Set in CONFIG
@@ -79,11 +83,10 @@
 #define VSHUNT_Range(ADC_RANGE) (((ADC_RANGE) == 0) ? ADC_RANGE_0H_Max : ADC_RANGE_1H_Max) 
 
 
-#define SHUNT_CAL(ADC_RANGE, Maximum_Expected_Current, R_SHUNT) (SHUNT_CAL_FIXED_VALUE(ADC_RANGE) * (CURRENT_CONVERSION_FACTOR(Maximum_Expected_Current)) * (R_SHUNT))
 
 // Value Calculations:
-#define SHUNT_mVOLTS(VSHUNT_REGISTER_VALUE, ADC_RANGE) (static_cast<float>(abs(VSHUNT_REGISTER_VALUE)) * (VSHUNT_CONVERSION_FACTOR(ADC_RANGE)))
-#define VOLTS(VBUS_REGISTER_VALUE) (static_cast<float>(abs(VBUS_REGISTER_VALUE)) * (VBUS_CONVERSION_FACTOR))
+#define SHUNT_mVOLTS(VSHUNT_REGISTER_VALUE, ADC_RANGE) (static_cast<float>(VSHUNT_REGISTER_VALUE) * VSHUNT_CONVERSION_FACTOR(ADC_RANGE))
+#define VOLTS(VBUS_REGISTER_VALUE) (static_cast<float>(VBUS_REGISTER_VALUE) * (VBUS_CONVERSION_FACTOR))
 #define DIETEMP(DIETEMP_REGISTER_VALUE) (static_cast<float>(DIETEMP_REGISTER_VALUE)) * (TEMP_CONVERSION_FACTOR)
 #define CtoF(CelsiusTemp) ((CelsiusTemp * 1.8) + 32) //CelsiusTemp to Fahrenheit math
 #define AMPS(CURRENT_REGISTER_VALUE, CURRENT_CONVERSION_FACTOR_VALUE) (static_cast<float>(CURRENT_REGISTER_VALUE) * (CURRENT_CONVERSION_FACTOR_VALUE))
@@ -96,12 +99,12 @@
 // CHECK_SHUNT_RANGE tests to see if your Maximum Expected Current will work with the ADC_RANGE setting and the Resistance you are using.
 // True = good to go
 // False = Your maximum current will create a higher voltage than the Analog to Digital Converter (ADC) can read!
-#define CHECK_SHUNT_ADC_RANGE(ADC_RANGE, Maximum_Expected_Current, R_SHUNT) (((ADC_RANGE) == 0) ? SHUNT_VOLTAGE_DROP(Maximum_Expected_Current, R_SHUNT) < ADC_RANGE_0H_Max : SHUNT_VOLTAGE_DROP(Maximum_Expected_Current, R_SHUNT) < ADC_RANGE_1H_Max) 
+#define CHECK_SHUNT_ADC_RANGE(ADC_RANGE, Maximum_Expected_Current, R_SHUNT) (((ADC_RANGE) == 0) ? (SHUNT_VOLTAGE_DROP(Maximum_Expected_Current, R_SHUNT) < ADC_RANGE_0H_Max) : (SHUNT_VOLTAGE_DROP(Maximum_Expected_Current, R_SHUNT) < ADC_RANGE_1H_Max))
 
 // ADC_RANGE_Selector selects the proper ADC_RANGE for the highest current readings based on you Maximum Expected Current and Resistance value of the shunt resistor
 // returns the ADC_RANGE Registery Value that best matches the Current and Resistance values you selected 
 // you should also check the CHECK_SHUNT_ADC_RANG() to verify that you are not exceeding the limits of the ADC
-#define ADC_RANGE_Selector(Maximum_Expected_Current, R_SHUNT) (SHUNT_VOLTAGE_DROP(Maximum_Expected_Current, R_SHUNT) > ADC_RANGE_1H_Max) ? CONFIG_ADCRANGE_0H_163_84mV : CONFIG_ADCRANGE_1H__40_96mV
+#define ADC_RANGE_Selector(Maximum_Expected_Current, R_SHUNT) (SHUNT_VOLTAGE_DROP(Maximum_Expected_Current, R_SHUNT) > ADC_RANGE_1H_Max) ? CONFIG_ADCRANGE_0H_163_84mV : CONFIG_ADCRANGE_1H_40_96mV
 
 
 // Config Settings:
@@ -133,14 +136,15 @@
 //      1.25 µV/LSB when ADCRANGE = 1
 // (values in hex, shifted left by 4 bits):
 //#define CONFIG_ADCRANGE_0H_163_84mV 0X00U             // 0h = ±163.84 mV ADC Full Scale Range or a Resolution of 5 µV/LSB
-//#define CONFIG_ADCRANGE_1H__40_96mV  (0x1U << 4)     // 1h = ± 40.96 mV ADC Full Scale Range or a Resolution of 1.25 µV/LSB
+//#define CONFIG_ADCRANGE_1H_40_96mV  (0x1U << 4)     // 1h = ± 40.96 mV ADC Full Scale Range or a Resolution of 1.25 µV/LSB
 
 
 
 // CONFIG (0x00) - Configuration (16-bit, R/W)
-#define W_CONFIG(Data)      WriteUInt(0x00U, (uint16_t)Data)      // Write to Configuration register
-#define R_CONFIG(Data)      ReadUInt(0x00U, (uint16_t *)Data)     // Read from Configuration register
-
+#define W_CONFIG(DATA)      WriteUInt(0x00U, (uint16_t)DATA)      // Write to Configuration register
+#define R_CONFIG(DATA)      ReadUInt(0x00U, (uint16_t *)DATA)     // Read from Configuration register
+#define W_CONFIG_CONVDLY(DATA)   WriteIntBitMX(0x00U, (uint16_t)(0x00FF << 6), (uint16_t)DATA)
+#define W_CONFIG_ADCRANGE(DATA)   WriteIntBitMX(0x00U, (uint16_t)CONFIG_ADCRANGE_1H_40_96mV, (uint16_t)DATA)
 
 // -------------------------
 // ADC_CONFIG Register Fields
@@ -168,6 +172,8 @@
 #define ADC_CONFIG_MODE_CONTINUOUS_TEMPERATURE_AND_SHUNT_VOLTAGE               (0x0EU << 12)  // Eh: Continuous temperature and shunt voltage
 #define ADC_CONFIG_MODE_CONTINUOUS_ALL                                         (0x0FU << 12)  // Fh: Continuous bus voltage, shunt voltage and temperature
 
+#define W_ADC_CONFIG_MODE(DATA)   WriteIntBitMX(0x01U, (uint16_t)(0x0FU << 12), (uint16_t)DATA)
+
 // VBUSCT field (bits 11-9)
 // Conversion time for bus voltage measurement.
 #define ADC_CONFIG_VBUSCT_50us    0U            // 0h = 50 µs
@@ -178,6 +184,8 @@
 #define ADC_CONFIG_VBUSCT_1052us  (0x05U << 9)   // 5h = 1052 µs (default)
 #define ADC_CONFIG_VBUSCT_2074us  (0x06U << 9)   // 6h = 2074 µs
 #define ADC_CONFIG_VBUSCT_4120us  (0x07U << 9)   // 7h = 4120 µs
+
+#define W_ADC_CONFIG_VBUSCT(DATA)   WriteIntBitMX(0x01U, (uint16_t)(0x07U << 9), (uint16_t)DATA)
 
 // VSHCT field (bits 8-6)
 // Conversion time for shunt voltage measurement.
@@ -190,6 +198,8 @@
 #define ADC_CONFIG_VSHCT_2074us   (0x06U << 6)   // 6h = 2074 µs
 #define ADC_CONFIG_VSHCT_4120us   (0x07U << 6)   // 7h = 4120 µs
 
+#define W_ADC_CONFIG_VSHCT(DATA)   WriteIntBitMX(0x01U, (uint16_t)(0x07U << 6), (uint16_t)DATA)
+
 // VTCT field (bits 5-3)
 // Conversion time for temperature measurement.
 #define ADC_CONFIG_VTCT_50us      0U            // 0h = 50 µs
@@ -200,6 +210,8 @@
 #define ADC_CONFIG_VTCT_1052us    (0x05U << 3)   // 5h = 1052 µs (default)
 #define ADC_CONFIG_VTCT_2074us    (0x06U << 3)   // 6h = 2074 µs
 #define ADC_CONFIG_VTCT_4120us    (0x07U << 3)   // 7h = 4120 µs
+
+#define W_ADC_CONFIG_VTCT(DATA)   WriteIntBitMX(0x01U, (uint16_t)(0x07U << 3), (uint16_t)DATA)
 
 // AVG field (bits 2-0)
 // ADC sample averaging count.
@@ -212,26 +224,28 @@
 #define ADC_CONFIG_AVG_512        (0x06U)   // 6h = 512 samples
 #define ADC_CONFIG_AVG_1024       (0x07U)   // 7h = 1024 samples
 
+#define W_ADC_CONFIG_AVG(DATA)   WriteIntBitMX(0x01U, (uint16_t)(0x07U), (uint16_t)DATA)
+
 // ADC_CONFIG (0x01) - ADC Configuration (16-bit, R/W)
-#define W_ADC_CONFIG(Data)  WriteUInt(0x01U, (uint16_t)Data)      // Write to ADC Configuration register
-#define R_ADC_CONFIG(Data)  ReadUInt(0x01U, (uint16_t *)Data)     // Read from ADC Configuration register
+#define W_ADC_CONFIG(DATA)  WriteUInt(0x01U, (uint16_t)DATA)      // Write to ADC Configuration register
+#define R_ADC_CONFIG(DATA)  ReadUInt(0x01U, (uint16_t *)DATA)     // Read from ADC Configuration register
 
 // SHUNT_CAL (0x02) - Shunt Calibration (16-bit, R/W)
 
 // use function CalculateShuntCal(double rShunt, double maxExpectedCurrent) to record this value
-#define W_SHUNT_CAL(Data)   WriteUInt(0x02U, (uint16_t)Data)      // Write to Shunt Calibration register
-#define R_SHUNT_CAL(Data)   ReadUInt(0x02U, (uint16_t *)Data)     // Read from Shunt Calibration register
+#define W_SHUNT_CAL(DATA)   WriteUInt(0x02U, (uint16_t)DATA)      // Write to Shunt Calibration register
+#define R_SHUNT_CAL(DATA)   ReadUInt(0x02U, (uint16_t *)DATA)     // Read from Shunt Calibration register
 
 // VSHUNT (0x04) - Shunt Voltage Measurement (16-bit, Read-only)
 // Shunt voltage:
 // ±163.84 mV (ADCRANGE = 0) with a resolution of 5 µV/LSB 
 // ±40.96 mV  (ADCRANGE = 1) with a resolution of 1.25 µV/LSB
-#define R_VSHUNT(Data)      ReadInt(0x04U, (int16_t *)Data)     // Read Shunt Voltage
+#define R_VSHUNT(DATA)      ReadInt(0x04U, (int16_t *)DATA)     // Read Shunt Voltage
 
 // VBUS (0x05) - Bus Voltage Measurement (16-bit, Read-only)
 // Bus voltage: 
 // 0 V to 85 V with a resolution of 3.125 mV/LSB
-#define R_VBUS(Data)        ReadInt(0x05U, (int16_t *)Data)     // Read Bus Voltage
+#define R_VBUS(DATA)        ReadInt(0x05U, (int16_t *)DATA)    // Read Bus Voltage
 
 // DIETEMP (0x06) - Temperature Measurement (16-bit, Read-only)
 // Temperature:
@@ -240,16 +254,18 @@
 #define Celsius false
 #define DegF true
 #define DegC false
-//#define R_DIETEMP(Data)     ReadInt(0x06U, (int16_t *)Data)     // Read Internal Die Temperature
-#define R_DIETEMP(Data)     ReadInt(0x06U, (int16_t *)Data);  *(Data) = (abs(*(Data)))>>4    //
-//#define R_UDIETEMP(Data)     ReadUInt(0x06U, (uint16_t *)Data)     // Read Internal Die Temperature
+//#define R_DIETEMP(DATA)     ReadInt(0x06U, (int16_t *)DATA)     // Read Internal Die Temperature
+//#define R_DIETEMP(DATA)     ReadInt(0x06U, (int16_t *)DATA);  *(DATA) = (abs(*(DATA)))>>4    //
+#define R_DIETEMP(DATA) do {ReadInt(0x06U, (int16_t *)DATA); *(DATA) >>= 4;if (*DATA & 0x0800) *(DATA) |= 0xF000; } while (0);
+
+//#define R_UDIETEMP(DATA)     ReadUInt(0x06U, (uint16_t *)DATA)     // Read Internal Die Temperature
 
 // CURRENT (0x07) - Current Result (16-bit, Read-only)
-#define R_CURRENT(Data)     ReadInt(0x07U, (int16_t *)Data)     // Read Calculated Current
+#define R_CURRENT(DATA)     ReadInt(0x07U, (int16_t *)DATA)     // Read Calculated Current
 
 // POWER (0x08) - Power Result (24-bit, Read-only)
 // Assumes a function "Read24" exists that handles 24-bit register reads.
-#define R_POWER(Data)       ReadU24(0x08U, (uint32_t *)Data)       // Read Calculated Power (24-bit)
+#define R_POWER(DATA)       ReadU24(0x08U, (uint32_t *)DATA)       // Read Calculated Power (24-bit)
 
 
 // -------------------------
@@ -260,23 +276,37 @@
 
 // Bit 15: ALATCH (Alert Latch Enable)
 // 0h = Transparent, 1h = Latched
-#define DIAG_ALRT_ALATCH_TRANSPARENT    (0x00U)
-#define DIAG_ALRT_ALATCH_LATCHED        (0x01U << 15)
+#define DIAG_ALRT_ALATCH_TRANSPARENT      0
+#define DIAG_ALRT_ALATCH_LATCHED          0x01U 
+#define W_DIAG_ALRT_ALATCH_TRANSPARENT    WriteIntBitMX(0x0BU, (uint16_t)(0x01U << 15), DIAG_ALRT_ALATCH_TRANSPARENT)
+#define W_DIAG_ALRT_ALATCH_LATCHED        WriteIntBitMX(0x0BU, (uint16_t)(0x01U << 15), DIAG_ALRT_ALATCH_LATCHED << 15)
+#define W_DIAG_ALRT_ALATCH(DATA)          WriteIntBitMX(0x0BU, (uint16_t)(0x01U << 15), (uint16_t) (DATA != 0) << 15)
 
 // Bit 14: CNVR (Conversion Ready Flag on ALERT Pin)
 // 0h = Disable, 1h = Enable conversion ready flag
-#define DIAG_ALRT_CNVR_DISABLE          (0x00U)
-#define DIAG_ALRT_CNVR_ENABLE           (0x01U << 14)
+#define DIAG_ALRT_CNVR_DISABL             0
+#define DIAG_ALRT_CNVR_ENABLE             0x01U 
+#define W_DIAG_ALRT_CNVR_DISABLE          WriteIntBitMX(0x0BU, (uint16_t)(0x01U << 14), 0)
+#define W_DIAG_ALRT_CNVR_ENABLE           WriteIntBitMX(0x0BU, (uint16_t)(0x01U << 14), DIAG_ALRT_CNVR_ENABLE << 14)
+#define W_DIAG_ALRT_CNVR(DATA)            WriteIntBitMX(0x0BU, (uint16_t)(0x01U << 14), (uint16_t) (DATA != 0) << 14)
 
 // Bit 13: SLOWALERT (Averaged vs Non-averaged Comparison)
 // 0h = ADC (non-averaged) value, 1h = Averaged value
-#define DIAG_ALRT_SLOWALERT_ADC         (0x00U)
-#define DIAG_ALRT_SLOWALERT_AVERAGED    (0x01U << 13)
+#define SLOWALERT_ADC                     0
+#define SLOWALERT_AVERAGED                0x01U 
+#define W_DIAG_ALRT_SLOWALERT_ADC         WriteIntBitMX(0x0BU, (uint16_t)(0x01U << 13), 0)
+#define W_DIAG_ALRT_SLOWALERT_AVERAGED    WriteIntBitMX(0x0BU, (uint16_t)(0x01U << 13), SLOWALERT_AVERAGED << 13)
+#define W_DIAG_ALRT_SLOWALERT(DATA)       WriteIntBitMX(0x0BU, (uint16_t)(0x01U << 13), (uint16_t) (DATA != 0) << 12)
 
 // Bit 12: APOL (Alert Polarity)
 // 0h = Normal (Active-low, open-drain), 1h = Inverted (Active-high, open-drain)
-#define DIAG_ALRT_APOL_NORMAL           (0x00U)
-#define DIAG_ALRT_APOL_INVERTED         (0x01U << 12)
+#define APOL_NORMAL                       0
+#define APOL_INVERTED                     0x01U
+#define W_DIAG_ALRT_APOL_NORMAL           WriteIntBitMX(0x0BU, (uint16_t)(0x01U << 12), 0)
+#define W_DIAG_ALRT_APOL_INVERTED         WriteIntBitMX(0x0BU, (uint16_t)(0x01U << 12), APOL_INVERTED << 12)
+#define W_DIAG_ALRT_APOL(DATA)            WriteIntBitMX(0x0BU, (uint16_t)(0x01U << 12), (uint16_t) (DATA != 0) << 12)
+
+// Bits 11-10: RESERVED (Always 0) -- No macros necessary
 
 // Bits 11-10: RESERVED (Always 0) -- No macros necessary
 
@@ -289,96 +319,105 @@
 // Bit 9: MATHOF (Arithmetic Overflow Flag)
 // 0h = Normal, 1h = Overflow
 #define DIAG_ALRT_MATHOF_OVERFLOW       (0x01U << 9)
+#define R_DIAG_ALRT_MATHOF_OVERFLOW(DATA)     ReadIntBitM(0x0BU,   (uint16_t)DIAG_ALRT_MATHOF_OVERFLOW, (uint16_t)DATA).Value() == DIAG_ALRT_MATHOF_OVERFLOW
 
 // Bit 8: RESERVED (Always 0) -- No macros necessary
 
 // Bit 7: TMPOL (Temperature Over-Limit)
 // 0h = Normal, 1h = Over Temperature Event
 #define DIAG_ALRT_TMPOL_OVER_TEMP       (0x01U << 7)
+#define R_DIAG_ALRT_TMPOL_OVER_TEMP(DATA)     ReadIntBitM(0x0BU,   (uint16_t)DIAG_ALRT_TMPOL_OVER_TEMP, (uint16_t)DATA).Value() == DIAG_ALRT_TMPOL_OVER_TEMP
 
 // Bit 6: SHNTOL (Shunt Overvoltage)
 // 0h = Normal, 1h = Over Shunt Voltage Event
 #define DIAG_ALRT_SHNTOL_OVER_SHUNT     (0x01U << 6)
+#define R_DIAG_ALRT_SHNTOL_OVER_SHUNT(DATA)   ReadIntBitM(0x0BU,   (uint16_t)DIAG_ALRT_SHNTOL_OVER_SHUNT, (uint16_t)DATA).Value() == DIAG_ALRT_SHNTOL_OVER_SHUNT
 
 // Bit 5: SHNTUL (Shunt Undervoltage)
 // 0h = Normal, 1h = Under Shunt Voltage Event
 #define DIAG_ALRT_SHNTUL_UNDER_SHUNT    (0x01U << 5)
+#define R_DIAG_ALRT_SHNTUL_UNDER_SHUNT(DATA)  ReadIntBitM(0x0BU,   (uint16_t)DIAG_ALRT_SHNTUL_UNDER_SHUNT, (uint16_t)DATA).Value() == DIAG_ALRT_SHNTUL_UNDER_SHUNT
 
 // Bit 4: BUSOL (Bus Overvoltage)
 // 0h = Normal, 1h = Bus Over-Limit Event
 #define DIAG_ALRT_BUSOL_OVER_BUS        (0x01U << 4)
+#define R_DIAG_ALRT_BUSOL_OVER_BUS(DATA)      ReadIntBitM(0x0BU,   (uint16_t)DIAG_ALRT_BUSOL_OVER_BUS, (uint16_t)DATA).Value() == DIAG_ALRT_BUSOL_OVER_BUS
 
 // Bit 3: BUSUL (Bus Undervoltage)
 // 0h = Normal, 1h = Bus Under-Limit Event
 #define DIAG_ALRT_BUSUL_UNDER_BUS       (0x01U << 3)
+#define R_DIAG_ALRT_BUSUL_UNDER_BUS(DATA)     ReadIntBitM(0x0BU,   (uint16_t)DIAG_ALRT_BUSUL_UNDER_BUS, (uint16_t)DATA).Value() == DIAG_ALRT_BUSUL_UNDER_BUS
 
 // Bit 2: POL (Power Over-Limit)
 // 0h = Normal, 1h = Power Over-Limit Event
 #define DIAG_ALRT_POL_OVER_POWER        (0x01U << 2)
+#define R_DIAG_ALRT_POL_OVER_POWER(DATA)      ReadIntBitM(0x0BU,   (uint16_t)DIAG_ALRT_POL_OVER_POWER, (uint16_t)DATA).Value() == DIAG_ALRT_POL_OVER_POWER
 
 // Bit 1: CNVRF (Conversion Ready Flag)
 // 0h = Normal, 1h = Conversion Complete
 #define DIAG_ALRT_CNVRF_READY           (0x01U << 1)
+#define R_DIAG_ALRT_CNVRF_READY(DATA)         ReadIntBitM(0x0BU,  (uint16_t)DIAG_ALRT_CNVRF_READY, (uint16_t)DATA).Value() == DIAG_ALRT_CNVRF_READY
 
 // Bit 0: MEMSTAT (Memory Status)
 // 0h = Memory Checksum Error, 1h = Normal Operation
 #define DIAG_ALRT_MEMSTAT_CHECKSUM_ERROR (0x00U)
 #define DIAG_ALRT_MEMSTAT_CHECKSUM_OK    (0x01U)
+#define R_DIAG_ALRT_MEMSTAT_CHECKSUM(DATA)     ReadIntBitM(0x0BU,  (uint16_t) DIAG_ALRT_MEMSTAT_CHECKSUM_OK, (uint16_t)DATA).Value() == DIAG_ALRT_MEMSTAT_CHECKSUM_ERROR
 
 // DIAG_ALRT (0x0B) - Diagnostic Flags and Alert (16-bit, R/W)
 
-#define W_DIAG_ALRT(Data)   WriteUInt(0x0BU, (uint16_t)Data)      // Write Diagnostic Flags and Alert register
-#define R_DIAG_ALRT(Data)   ReadUInt(0x0BU, (uint16_t *)Data)     // Read Diagnostic Flags and Alert register
+#define W_DIAG_ALRT(DATA)   WriteUInt(0x0BU, (uint16_t)DATA)      // Write Diagnostic Flags and Alert register
+#define R_DIAG_ALRT(DATA)   ReadUInt(0x0BU, (uint16_t *)DATA)     // Read Diagnostic Flags and Alert register
 
 // Limit setpoints for alerting:
 
 // SOVL (0x0C) - Shunt Overvoltage Threshold (16-bit, R/W)
-#define W_SOVL(Data)        WriteUInt(0x0CU, (uint16_t)Data)      // Write Shunt Overvoltage Threshold
-#define R_SOVL(Data)        ReadUInt(0x0CU, (uint16_t *)Data)     // Read Shunt Overvoltage Threshold
+#define W_SOVL(DATA)        WriteUInt(0x0CU, (uint16_t)DATA)      // Write Shunt Overvoltage Threshold
+#define R_SOVL(DATA)        ReadUInt(0x0CU, (uint16_t *)DATA)     // Read Shunt Overvoltage Threshold
 // Set_SOVL calculates and sets the Overvoltage Threshold
 #define Set_SOVL(ADC_RANGE, OVER_VOLTAGE_VALUE) W_SOVL((uint16_t)(static_cast<float>(OVER_VOLTAGE_VALUE) / VSHUNT_CONVERSION_FACTOR(ADC_RANGE)))
 
 
 // SUVL (0x0D) - Shunt Undervoltage Threshold (16-bit, R/W)
-#define W_SUVL(Data)        WriteUInt(0x0DU, (uint16_t)Data)      // Write Shunt Undervoltage Threshold
-#define R_SUVL(Data)        ReadUInt(0x0DU, (uint16_t *)Data)     // Read Shunt Undervoltage Threshold
+#define W_SUVL(DATA)        WriteUInt(0x0DU, (uint16_t)DATA)      // Write Shunt Undervoltage Threshold
+#define R_SUVL(DATA)        ReadUInt(0x0DU, (uint16_t *)DATA)     // Read Shunt Undervoltage Threshold
 // Set_SUVL calculates and sets the Shunt Undervoltage Threshold
 #define Set_SUVL(ADC_RANGE, UNDER_VOLTAGE_VALUE) W_SUVL((uint16_t)(static_cast<float>(UNDER_VOLTAGE_VALUE) / VSHUNT_CONVERSION_FACTOR(ADC_RANGE)))
 #define Set_SUVL_Using_Amps(ADC_RANGE,OVER_CURRENT_VALUE,SHUNT_RESISTANCE) W_SUVL(static_cast<uint16_t>((static_cast<float>(OVER_CURRENT_VALUE) * static_cast<float>(SHUNT_RESISTANCE)) / VSHUNT_CONVERSION_FACTOR(ADC_RANGE)))
 
 // BOVL (0x0E) - Bus Overvoltage Threshold (16-bit, R/W)
-#define W_BOVL(Data)        WriteUInt(0x0EU, (uint16_t)Data)      // Write Bus Overvoltage Threshold
-#define R_BOVL(Data)        ReadUInt(0x0EU, (uint16_t *)Data)     // Read Bus Overvoltage Threshold
+#define W_BOVL(DATA)        WriteUInt(0x0EU, (uint16_t)DATA)      // Write Bus Overvoltage Threshold
+#define R_BOVL(DATA)        ReadUInt(0x0EU, (uint16_t *)DATA)     // Read Bus Overvoltage Threshold
 // Set_BOVL calculates and sets the Bus Overvoltage Threshold
 #define Set_BOVL(OVER_VOLTAGE_VALUE) W_BOVL((uint16_t)(static_cast<float>(OVER_VOLTAGE_VALUE) / VBUS_CONVERSION_FACTOR))
 
 // BUVL (0x0F) - Bus Undervoltage Threshold (16-bit, R/W)
-#define W_BUVL(Data)        WriteUInt(0x0FU, (uint16_t)Data)      // Write Bus Undervoltage Threshold
-#define R_BUVL(Data)        ReadUInt(0x0FU, (uint16_t *)Data)     // Read Bus Undervoltage Threshold
+#define W_BUVL(DATA)        WriteUInt(0x0FU, (uint16_t)DATA)      // Write Bus Undervoltage Threshold
+#define R_BUVL(DATA)        ReadUInt(0x0FU, (uint16_t *)DATA)     // Read Bus Undervoltage Threshold
 // Set_BUVL calculates and sets the Bus Undervoltage Threshold
 #define Set_BUVL(UNDER_VOLTAGE_VALUE) W_BUVL((uint16_t)(static_cast<float>(UNDER_VOLTAGE_VALUE) / VBUS_CONVERSION_FACTOR))
 
 // TEMP_LIMIT (0x10) - Temperature Over-Limit Threshold (16-bit, R/W)
-#define W_TEMP_LIMIT(Data)  WriteUInt(0x10U, (uint16_t)Data)      // Write Temperature Over-Limit Threshold
-#define R_TEMP_LIMIT(Data)  ReadUInt(0x10U, (uint16_t *)Data)     // Read Temperature Over-Limit Threshold
+#define W_TEMP_LIMIT(DATA)  WriteUInt(0x10U, (uint16_t)DATA)      // Write Temperature Over-Limit Threshold
+#define R_TEMP_LIMIT(DATA)  ReadUInt(0x10U, (uint16_t *)DATA)     // Read Temperature Over-Limit Threshold
 // Set_TOL calculates and sets the Bus Over Temperature Threshold
 #define Set_TOL_C(OVER_TEMPERATURE_VALUE_C) W_TEMP_LIMIT((uint16_t)(static_cast<float>(OVER_TEMPERATURE_VALUE_C) / TEMP_CONVERSION_FACTOR))
 #define Set_TOL_F(OVER_TEMPERATURE_VALUE_F) W_TEMP_LIMIT((uint16_t)(((static_cast<float>(OVER_TEMPERATURE_VALUE_F)-32)/1.8) / TEMP_CONVERSION_FACTOR))
 
 // PWR_LIMIT (0x11) - Power Over-Limit Threshold (16-bit, R/W)
-#define W_PWR_LIMIT(Data)   WriteUInt(0x11U, (uint16_t)Data)      // Write Power Over-Limit Threshold
-#define R_PWR_LIMIT(Data)   ReadUInt(0x11U, (uint16_t *)Data)     // Read Power Over-Limit Threshold
+#define W_PWR_LIMIT(DATA)   WriteUInt(0x11U, (uint16_t)DATA)      // Write Power Over-Limit Threshold
+#define R_PWR_LIMIT(DATA)   ReadUInt(0x11U, (uint16_t *)DATA)     // Read Power Over-Limit Threshold
 // Set_POL calculates and sets the Power Threshold
 #define Set_POL(OVER_POWER_VALUE_WATTS, Maximum_Expected_Current) W_PWR_LIMIT((uint16_t)(static_cast<float>(OVER_POWER_VALUE_WATTS) / (256 * POWER_CONVERSION_FACTOR(Maximum_Expected_Current))))
 
 
 // MANUFACTURER_ID (0x3E) - Manufacturer ID (16-bit, Read-only)
 // Expected value: 0x5449 ("TI" in ASCII)
-#define R_MANUFACTURER_ID(Data) ReadUInt(0x3EU, (uint16_t *)Data)  // Read Manufacturer ID
+#define R_MANUFACTURER_ID(DATA) ReadUInt(0x3EU, (uint16_t *)DATA)  // Read Manufacturer ID
 
 // DEVICE_ID (0x3F) - Device ID (16-bit, Read-only)
 // Expected default value: 0x2381
-#define R_DEVICE_ID(Data)   ReadUInt(0x3FU, (uint16_t *)Data)     // Read Device ID
+#define R_DEVICE_ID(DATA)   ReadUInt(0x3FU, (uint16_t *)DATA)     // Read Device ID
 #define DEVICE_ID           0x2381U                               // INA238 DEVICE ID 
 #define CHIP_ID             0x40U                                 // i2c address with A0 and A1 Grounded (Can Ranges from 0x80 ~ 0x8F)
 #define ChIP_ID_END         0x4FU

@@ -118,10 +118,10 @@ void setup() {
  // VA_Meter.setOnAlarmSensorsCallbackFunction(SensorsAlarmFunctionName);
  // VA_Meter.setOnMathOverflowCallback(MathOverflowAlarmFunctionName);
   VA_Meter.setOnTemperatureOverCallback(INA238OverTemperature);
-  VA_Meter.setOnShuntOvervoltageCallback(INA238OverCurrent);
-  VA_Meter.setOnShuntUndervoltageCallback(INA238UnderCurrent);
-  VA_Meter.setOnBusOvervoltageCallback(INA238OverVoltage);
-  VA_Meter.setOnBusUndervoltageCallback(INA238UnderVoltage);
+  VA_Meter.setOnShuntOverVoltageCallback(INA238OverCurrent);
+  VA_Meter.setOnShuntUnderVoltageCallback(INA238UnderCurrent);
+  VA_Meter.setOnBusOverVoltageCallback(INA238OverVoltage);
+  VA_Meter.setOnBusUnderVoltageCallback(INA238UnderVoltage);
   VA_Meter.setOnPowerOverlimitCallback(INA238OverPower);
   //VA_Meter.setOnMemoryChecksumErrorCallback(MemoryChecksumErrorFunctionName);
   VA_Meter.setOnConversionReadyCallback(INA238ConversionReady);

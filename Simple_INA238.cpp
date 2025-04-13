@@ -123,30 +123,6 @@ Simple_INA238 &Simple_INA238::Reset()
     return *this;
 }
 
-// Private helper to update specific bit fields in the ADC_CONFIG register.
-Simple_INA238 &Simple_INA238::updateCONFIGField(uint16_t mask, uint16_t setting)
-{
-    uint16_t reg = 0;
-    R_CONFIG(&reg);          // Retrieve the current CONFIG register value
-    reg &= ~mask;            // Clear the bits specified by mask
-    reg |= (setting & mask); // Set the new bits (only within the mask)
-    W_CONFIG(reg);           // Write the updated value back
-    return *this;
-}
-
-// Sets both values in one command See CONFIG_CONVDLY and CONFIG_ADCRANGE for detailed explinations of each value
-// Example Usage:
-// CONFIG(CONFIG_CONVDLY_MS(100),CONFIG_ADCRANGE_0H_163_84mV);
-Simple_INA238 &Simple_INA238::CONFIG(uint16_t CONVDLY, uint16_t ADCRANGE)
-{
-    adcRange = ADCRANGE;
-    // Define the combined mask for all three fields:
-    uint16_t mask = (0xFF << 6) | (0x1 << 4);
-    // Combine the individual settings (they should already be shifted correctly)
-    uint16_t setting = (CONVDLY | ADCRANGE) & mask;
-    return updateCONFIGField(mask, setting);
-}
-
 // The following functions allow you to set the CONFIG bits separatly
 //  The conversion delay is set to 0 by default
 //  Conversion delay can assist in measurement synchronization
@@ -158,16 +134,19 @@ Simple_INA238 &Simple_INA238::CONFIG(uint16_t CONVDLY, uint16_t ADCRANGE)
 //  usage example 2 CONFIG_CONVDLY(CONFIG_CONVDLY_MS(100)) sets the Conversion delay to 100ms
 Simple_INA238 &Simple_INA238::CONFIG_CONVDLY_Value(uint16_t CONVDLY)
 {
-    return CONFIG_CONVDLY(CONFIG_CONVDLY_Val(CONVDLY));
+    CONFIG_CONVDLY(CONFIG_CONVDLY_Val(CONVDLY));
+    return *this;
 }
 Simple_INA238 &Simple_INA238::CONFIG_CONVDLY_Miliseconds(uint16_t MiliSeconds)
 {
-    return CONFIG_CONVDLY(CONFIG_CONVDLY_MS(MiliSeconds));
+    CONFIG_CONVDLY(CONFIG_CONVDLY_MS(MiliSeconds));
+    return *this;
 }
 Simple_INA238 &Simple_INA238::CONFIG_CONVDLY(uint16_t CONVDLY)
 {
     // CONVDLY is assumed to be pre-shifted (or will be masked) by (0xF << 6)
-    return updateCONFIGField((0xFF << 6), CONVDLY);
+    W_CONFIG_CONVDLY(CONVDLY);
+    return *this;
 }
 
 // ADCRANGE Analog to digital Conversion Range
@@ -182,7 +161,8 @@ Simple_INA238 &Simple_INA238::CONFIG_CONVDLY(uint16_t CONVDLY)
 Simple_INA238 &Simple_INA238::CONFIG_ADCRANGE(uint16_t ADCRANGE)
 {
     adcRange = ADCRANGE;
-    return updateCONFIGField((0x1 << 4), adcRange);
+    W_CONFIG_ADCRANGE(adcRange);
+    return *this;
 }
 
 // Private helper to update specific bit fields in the ADC_CONFIG register.
@@ -203,7 +183,8 @@ Simple_INA238 &Simple_INA238::updateADCField(uint16_t mask, uint16_t setting)
 Simple_INA238 &Simple_INA238::ADC_CONFIG_MODE(uint16_t MODE)
 {
     // mode is assumed to be pre-shifted (or will be masked) by (0xF << 12)
-    return updateADCField((0xF << 12), MODE);
+    updateADCField((0xF << 12), MODE);
+    return *this;
 }
 
 // VBUSCT = Conversion time for bus voltage measurement.
@@ -220,7 +201,8 @@ Simple_INA238 &Simple_INA238::ADC_Config_CT(uint16_t VBUSCT, uint16_t VSHCT, uin
     uint16_t mask = (0x7 << 9) | (0x7 << 6) | (0x7 << 3);
     // Combine the individual settings (they should already be shifted correctly)
     uint16_t setting = (VBUSCT | VSHCT | VTCT) & mask;
-    return updateADCField(mask, setting);
+    updateADCField(mask, setting);
+    return *this;
 }
 
 // AVG = Analog to Digital Converter sample averaging count.
@@ -229,7 +211,8 @@ Simple_INA238 &Simple_INA238::ADC_Config_CT(uint16_t VBUSCT, uint16_t VSHCT, uin
 // ADC_Config_AVG(ADC_CONFIG_AVG_1024);
 Simple_INA238 &Simple_INA238::ADC_Config_AVG(uint16_t AVG)
 {
-    return updateADCField(0x7, AVG);
+    updateADCField(0x7, AVG);
+    return *this;
 }
 
 // rShunt is the resistance Value of the Shunt Resistor
@@ -267,8 +250,9 @@ Simple_INA238 &Simple_INA238::CalculateShuntCal(float rShunt, float maxExpectedC
     {
         float SVD = 0.0f;
         SVD = SHUNT_VOLTAGE_DROP(maxExpectedCurrent, ShuntResistance);
-        adcRange = (SVD > ADC_RANGE_1H_Max) ? CONFIG_ADCRANGE_0H_163_84mV : CONFIG_ADCRANGE_1H_40_96mV;
+        adcRange = (SVD > ADC_RANGE_1H_Max) ? CONFIG_ADCRANGE_0H_163_84mV : CONFIG_ADCRANGE_1H_40_96mV; // Select ADC Range
         CONFIG_ADCRANGE(adcRange); // Set the Value
+        adcRangeMultiplier = ((adcRange == CONFIG_ADCRANGE_1H_40_96mV) ? 4.0f : 1.0f); // Set the multiplier
         if (Verbose)
         {
             Serial.print("ADC Calculated Shunt Max Voltgae: ");
@@ -278,11 +262,14 @@ Simple_INA238 &Simple_INA238::CalculateShuntCal(float rShunt, float maxExpectedC
             Serial.println(adcRange, HEX);
         }
     }
-    current_lsb = maxExpectedCurrent / 32768.0F; // 32,768 == 2^15
+    current_lsb = (maxExpectedCurrent / 32768.0F); // 32,768 == 2^15
     power_lsb = 0.20 * current_lsb;
 
-    shuntCal = ((adcRange != 0) ? 1.0f : 4.0f) * 819.2e6F * current_lsb * ShuntResistance; // 819.2e6 == 819,200,000
-    uint16_t shuntCalValue = static_cast<uint16_t>(shuntCal);
+
+    float xshuntCal = 0.0;     
+    xshuntCal = ((adcRange == 0) ? 1.0f : 4.0f) * 819.2e6F * current_lsb * ShuntResistance; // 819.2e6 == 819,200,000
+    shuntCal = SHUNT_CAL(adcRange, maxExpectedCurrent, ShuntResistance) ;
+    shuntCalValue = static_cast<uint16_t>(shuntCal) & 0x7FFF;
     W_SHUNT_CAL(shuntCalValue);
     if (Verbose)
     {
@@ -290,6 +277,8 @@ Simple_INA238 &Simple_INA238::CalculateShuntCal(float rShunt, float maxExpectedC
         Serial.println(current_lsb, 10);
         Serial.print("power lsb: ");
         Serial.println(power_lsb, 10);
+        Serial.print("xshunt Cal: ");
+        Serial.println(xshuntCal, 10);
         Serial.print("shunt Cal: ");
         Serial.println(shuntCal, 10);
         Serial.print("shunt Cal Value: ");
@@ -303,7 +292,7 @@ Simple_INA238 &Simple_INA238::CalculateShuntCal(float rShunt, float maxExpectedC
         Serial.print("The Max Voltage drop that is readable by the ADC is +-");
         // CONFIG_ADCRANGE_0H_163_84mV = ±163.84 mV Full Scale (5 µV/LSB)
         // CONFIG_ADCRANGE_1H_40_96mV  = ±40.96 mV Full Scale (1.25 µV/LSB)
-        Serial.println((((adcRange) == 0) ? ADC_RANGE_0H_Max : ADC_RANGE_1H_Max), 5);
+        Serial.println((((adcRange) == CONFIG_ADCRANGE_0H_163_84mV) ? ADC_RANGE_0H_Max : ADC_RANGE_1H_Max), 5);
     }
     return *this;
 }
@@ -313,17 +302,19 @@ Simple_INA238 &Simple_INA238::SetMaxExpectedCurrent(float maxExpectedCurrent)
     _maxExpectedCurrent = maxExpectedCurrent;
     Serial.print("max Expected Current: ");
     Serial.println(_maxExpectedCurrent, 4);
-    current_lsb = maxExpectedCurrent / 2e15;
+    current_lsb = CURRENT_LSB_Cal(maxExpectedCurrent);  //See INA238_RW_Macros.h for conversion
     Serial.print("current lsb: ");
     Serial.println(current_lsb, 10);
     return *this;
 }
+float Simple_INA238::uVoltageShunt() { // Micro Volts Shunt
+    return mVoltageShunt() * 1000.0f;
+}
 
-float Simple_INA238::mVoltageShunt()
+float Simple_INA238::mVoltageShunt() // Milli Volts Shunt
 {
     int16_t data;
-    R_VSHUNT(&data);
-    return SHUNT_mVOLTS(data, adcRange);
+    return SHUNT_mVOLTS(R_VSHUNT(&data).Value(), adcRange);
 }
 
 Simple_INA238 &Simple_INA238::mVoltageShunt(float &ShuntVoltage)
@@ -334,10 +325,8 @@ Simple_INA238 &Simple_INA238::mVoltageShunt(float &ShuntVoltage)
 
 float Simple_INA238::VoltageBus()
 {
-    int16_t data;
-    R_VBUS(&data);
-
-    return VOLTS(data);
+    int16_t VBus;
+    return  VOLTS(R_VBUS(&VBus).Value());
 }
 
 Simple_INA238 &Simple_INA238::VoltageBus(float &busVoltage)
@@ -348,10 +337,10 @@ Simple_INA238 &Simple_INA238::VoltageBus(float &busVoltage)
 
 float Simple_INA238::Temperature(bool isFahrenheit)
 {
-    int16_t value;
+    int16_t RawTemp;
     float Temperature;
-    R_DIETEMP(&value);
-    Temperature = DIETEMP(value);
+    R_DIETEMP(&RawTemp);
+    Temperature = DIETEMP(RawTemp);
     if (!isFahrenheit)
         return Temperature;   // For Celsius Value
     return CtoF(Temperature); // Convert to F
@@ -366,8 +355,7 @@ Simple_INA238 &Simple_INA238::Temperature(float &Temp, bool IsF)
 float Simple_INA238::Current()
 {
     int16_t data;
-    R_CURRENT(&data);
-    return AMPS(data, current_lsb);
+    return AMPS(R_CURRENT(&data).Value(), current_lsb);
 }
 Simple_INA238 &Simple_INA238::Current(float &Amps)
 {
@@ -378,8 +366,7 @@ Simple_INA238 &Simple_INA238::Current(float &Amps)
 float Simple_INA238::Power()
 {
     uint32_t data = 0;
-    R_POWER(&data);
-    return WATTS(data, current_lsb);
+    return WATTS( R_POWER(&data).Value(), current_lsb);
 }
 
 Simple_INA238 &Simple_INA238::Power(float &Wats)
@@ -388,44 +375,33 @@ Simple_INA238 &Simple_INA238::Power(float &Wats)
     return *this;
 }
 
-// Private helper function in to store the values in W_DIAG_ALR()
-Simple_INA238 &Simple_INA238::updateDIAGField(uint16_t mask, uint16_t setting)
-{
-    uint16_t reg = 0;
-    R_DIAG_ALRT(&reg); // Retrieve the current DIAG_ALRT register value
-    reg &= ~mask;      // Clear the bits defined by mask
-    reg |= setting;    // Set the new bits
-    W_DIAG_ALRT(reg);  // Write the updated value back
-    return *this;
-}
-
 // When the Alert Latch Enable is set to Transparent mode, the Alert pin and Flag bit reset
 // to the idle state when the fault has been cleared. When set to Latch mode, they remain active.
 Simple_INA238 &Simple_INA238::DIAG_Alert_Latch(bool State)
 {
-    uint16_t alertSetting = (State) ? DIAG_ALRT_ALATCH_LATCHED : DIAG_ALRT_ALATCH_TRANSPARENT;
-    return updateDIAGField(DIAG_ALRT_ALATCH_LATCHED, alertSetting);
+    W_DIAG_ALRT_ALATCH((State) ? 1 : 0);
+    return *this;
 }
 
 // Setting the Conversion Ready flag on ALERT pin.
 Simple_INA238 &Simple_INA238::DIAG_Alert_Conversion_Ready_Flag(bool State)
 {
-    uint16_t alertSetting = (State) ? DIAG_ALRT_CNVR_ENABLE : DIAG_ALRT_CNVR_DISABLE;
-    return updateDIAGField(DIAG_ALRT_CNVR_ENABLE, alertSetting);
+    W_DIAG_ALRT_CNVR((State) ? 1 : 0);
+    return *this;
 }
 
 // When using averaged value for ALERT comparison.
 Simple_INA238 &Simple_INA238::DIAG_Alert_Use_Averaged_Value(bool State)
 {
-    uint16_t alertSetting = (State) ? DIAG_ALRT_SLOWALERT_AVERAGED : DIAG_ALRT_SLOWALERT_ADC;
-    return updateDIAGField(DIAG_ALRT_SLOWALERT_AVERAGED, alertSetting);
+    W_DIAG_ALRT_SLOWALERT((State) ? 1 : 0);
+    return *this;
 }
 
 // Set the Alert Pin polarity.
 Simple_INA238 &Simple_INA238::DIAG_Alert_Pin_Polarity(bool State)
 {
-    uint16_t alertSetting = (State) ? DIAG_ALRT_APOL_INVERTED : DIAG_ALRT_APOL_NORMAL;
-    return updateDIAGField(DIAG_ALRT_APOL_INVERTED, alertSetting);
+    W_DIAG_ALRT_APOL( (State) ? 1 : 0);
+    return *this;
 }
 
 uint16_t Simple_INA238::Alert(uint32_t DelayBetweenChecks)
@@ -485,31 +461,31 @@ uint16_t Simple_INA238::Alert()
     }
 
     // Check Shunt Overvoltage (Bit 6)
-    if ((LastAlert & DIAG_ALRT_SHNTOL_OVER_SHUNT) && (onShuntOvervoltageCallback))
+    if ((LastAlert & DIAG_ALRT_SHNTOL_OVER_SHUNT) && (onShuntOverVoltageCallback))
     {
         yield();
-        onShuntOvervoltageCallback();
+        onShuntOverVoltageCallback();
     }
 
     // Check Shunt Undervoltage (Bit 5)
-    if ((LastAlert & DIAG_ALRT_SHNTUL_UNDER_SHUNT) && (onShuntUndervoltageCallback))
+    if ((LastAlert & DIAG_ALRT_SHNTUL_UNDER_SHUNT) && (onShuntUnderVoltageCallback))
     {
         yield();
-        onShuntUndervoltageCallback();
+        onShuntUnderVoltageCallback();
     }
 
     // Check Bus Overvoltage (Bit 4)
-    if ((LastAlert & DIAG_ALRT_BUSOL_OVER_BUS) && (onBusOvervoltageCallback))
+    if ((LastAlert & DIAG_ALRT_BUSOL_OVER_BUS) && (onBusOverVoltageCallback))
     {
         yield();
-        onBusOvervoltageCallback();
+        onBusOverVoltageCallback();
     }
 
     // Check Bus Undervoltage (Bit 3)
-    if ((LastAlert & DIAG_ALRT_BUSUL_UNDER_BUS) && (onBusUndervoltageCallback))
+    if ((LastAlert & DIAG_ALRT_BUSUL_UNDER_BUS) && (onBusUnderVoltageCallback))
     {
         yield();
-        onBusUndervoltageCallback();
+        onBusUnderVoltageCallback();
     }
 
     // Check Power Over-Limit (Bit 2)
@@ -570,28 +546,28 @@ Simple_INA238 &Simple_INA238::setOnTemperatureOverCallback(OnAlarmCallback callb
 }
 
 // Shumt Voltage Callbacks
-Simple_INA238 &Simple_INA238::setOnShuntOvervoltageCallback(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnShuntOverVoltageCallback(OnAlarmCallback callback)
 {
-    onShuntOvervoltageCallback = callback;
+    onShuntOverVoltageCallback = callback;
     return *this;
 }
 
-Simple_INA238 &Simple_INA238::setOnShuntUndervoltageCallback(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnShuntUnderVoltageCallback(OnAlarmCallback callback)
 {
-    onShuntUndervoltageCallback = callback;
+    onShuntUnderVoltageCallback = callback;
     return *this;
 }
 
 // Bus Voltage Callbacks
-Simple_INA238 &Simple_INA238::setOnBusOvervoltageCallback(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnBusOverVoltageCallback(OnAlarmCallback callback)
 {
-    onBusOvervoltageCallback = callback;
+    onBusOverVoltageCallback = callback;
     return *this;
 }
 
-Simple_INA238 &Simple_INA238::setOnBusUndervoltageCallback(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnBusUnderVoltageCallback(OnAlarmCallback callback)
 {
-    onBusUndervoltageCallback = callback;
+    onBusUnderVoltageCallback = callback;
     return *this;
 }
 

@@ -53,10 +53,12 @@ class Simple_INA238 : public Simple_Wire {
     // Public member variables:
     uint16_t deviceID = DEVICE_ID;
     uint16_t adcRange = 0xff; // Not set by default.
+    float adcRangeMultiplier = 0;
     float current_lsb = 0.0;
     float power_lsb = 0.0;
     float ShuntResistance = 0.002;
     float shuntCal = 0.0;
+    uint16_t shuntCalValue = 0;
     float _maxExpectedCurrent = 0.0;
     bool ConectionVerified = false;
     bool Verbose = false;
@@ -109,6 +111,7 @@ class Simple_INA238 : public Simple_Wire {
 
     // Measurement functions (inline where appropriate):
     // Retrieves the Shunt Voltage
+    float uVoltageShunt();
     float mVoltageShunt();
     Simple_INA238 & mVoltageShunt(float &ShuntVoltage);
     // Retrieves the Bus Voltage
@@ -154,10 +157,10 @@ class Simple_INA238 : public Simple_Wire {
     Simple_INA238 & setOnAlarmSensorsCallbackFunction(OnAlarmCallback callback);
     Simple_INA238 & setOnMathOverflowCallback(OnAlarmCallback callback);
     Simple_INA238 & setOnTemperatureOverCallback(OnAlarmCallback callback);
-    Simple_INA238 & setOnShuntOvervoltageCallback(OnAlarmCallback callback);
-    Simple_INA238 & setOnShuntUndervoltageCallback(OnAlarmCallback callback);
-    Simple_INA238 & setOnBusOvervoltageCallback(OnAlarmCallback callback);
-    Simple_INA238 & setOnBusUndervoltageCallback(OnAlarmCallback callback);
+    Simple_INA238 & setOnShuntOverVoltageCallback(OnAlarmCallback callback);
+    Simple_INA238 & setOnShuntUnderVoltageCallback(OnAlarmCallback callback);
+    Simple_INA238 & setOnBusOverVoltageCallback(OnAlarmCallback callback);
+    Simple_INA238 & setOnBusUnderVoltageCallback(OnAlarmCallback callback);
     Simple_INA238 & setOnPowerOverlimitCallback(OnAlarmCallback callback);
     Simple_INA238 & setOnConversionReadyCallback(OnAlarmCallback callback);
     Simple_INA238 & setOnMemoryChecksumErrorCallback(OnAlarmCallback callback);
@@ -169,10 +172,10 @@ class Simple_INA238 : public Simple_Wire {
     OnAlarmCallback onAlarmSensorsCallback;
     OnAlarmCallback onMathOverflowCallback;
     OnAlarmCallback onTemperatureOverCallback;
-    OnAlarmCallback onShuntOvervoltageCallback;
-    OnAlarmCallback onShuntUndervoltageCallback;
-    OnAlarmCallback onBusOvervoltageCallback;
-    OnAlarmCallback onBusUndervoltageCallback;
+    OnAlarmCallback onShuntOverVoltageCallback;
+    OnAlarmCallback onShuntUnderVoltageCallback;
+    OnAlarmCallback onBusOverVoltageCallback;
+    OnAlarmCallback onBusUnderVoltageCallback;
     OnAlarmCallback onPowerOverlimitCallback;
     OnAlarmCallback onConversionReadyCallback;
     OnAlarmCallback onMemoryChecksumErrorCallback;
