@@ -54,6 +54,24 @@ void INA238ConversionReady() {
   }
 }
 
+void AllAlarms(uint16_t alertBits){
+  static uint16_t LastAlarm = 0;
+  if (LastAlarm == alertBits) return;
+  LastAlarm = alertBits;
+  Serial.print("\n------------------------------\nAlert triggered! Bits: 0x");
+  for (uint16_t t = (1UL << 15); t; t >>= 1) { // Prints the most significant bit first
+    Serial.write((alertBits & t) ? '1' : '0');
+  }
+  Serial.println();
+  Serial.println("1) Memory Checksum Error\n2) Power Over Limit\n3) Bus Voltage Under Limit\n4) Bus Voltage Over Limit\n5) Current Under Limit\n6) Current Over Limit \n7) Temperature Over Limit\n8) Math Overflow ");
+  Serial.println("1-234567-8")
+  for (uint16_t t = 1UL ; t; t <<= 1) { // Changed the order making the least significant bit first
+    Serial.write((alertBits & t) ? '*' : ' ');
+  }
+  Serial.println("\n------------------------------\n");
+}
+
+
 void INA238OverTemperature(){
   static unsigned long SpamTimer;
   if ((millis() - SpamTimer) >= (DelayBetweenChecks)) {
@@ -113,9 +131,9 @@ void setup() {
   Serial.begin(115200);
   Simple_INA238_Config();
 // callback functions to be triggered When Events are discovered This happens during the execution of VA_Meter.Alert();
- // VA_Meter.setOnAlarmCallbackFunction(AlarmFunctionName);
- // VA_Meter.setOnAlarmSoftwareCallbackFunction(SoftwareAlarmFunctionName);
- // VA_Meter.setOnAlarmSensorsCallbackFunction(SensorsAlarmFunctionName);
+  VA_Meter.setOnAlarmCallback(AllAlarms);
+ // VA_Meter.setOnAlarmSoftwareCallback(SoftwareAlarmFunctionName);
+ // VA_Meter.setOnAlarmSensorsCallback(SensorsAlarmFunctionName);
  // VA_Meter.setOnMathOverflowCallback(MathOverflowAlarmFunctionName);
   VA_Meter.setOnTemperatureOverCallback(INA238OverTemperature);
   VA_Meter.setOnShuntOverVoltageCallback(INA238OverCurrent);

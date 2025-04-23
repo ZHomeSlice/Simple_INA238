@@ -48,7 +48,9 @@
 class Simple_INA238 : public Simple_Wire {
   public:
     // Callback type definitions:
-    using OnAlarmCallback = std::function<void()>;
+    using OnAlarmEventCallback = std::function<void()>;
+    using OnAlarmCallback = std::function<void(uint16_t)>;
+
 
     // Public member variables:
     uint16_t deviceID = DEVICE_ID;
@@ -152,33 +154,33 @@ class Simple_INA238 : public Simple_Wire {
     
 
     // Callback setter functions:
-    Simple_INA238 & setOnAlarmCallbackFunction(OnAlarmCallback callback);
-    Simple_INA238 & setOnAlarmSoftwareCallbackFunction(OnAlarmCallback callback);
-    Simple_INA238 & setOnAlarmSensorsCallbackFunction(OnAlarmCallback callback);
-    Simple_INA238 & setOnMathOverflowCallback(OnAlarmCallback callback);
-    Simple_INA238 & setOnTemperatureOverCallback(OnAlarmCallback callback);
-    Simple_INA238 & setOnShuntOverVoltageCallback(OnAlarmCallback callback);
-    Simple_INA238 & setOnShuntUnderVoltageCallback(OnAlarmCallback callback);
-    Simple_INA238 & setOnBusOverVoltageCallback(OnAlarmCallback callback);
-    Simple_INA238 & setOnBusUnderVoltageCallback(OnAlarmCallback callback);
-    Simple_INA238 & setOnPowerOverlimitCallback(OnAlarmCallback callback);
-    Simple_INA238 & setOnConversionReadyCallback(OnAlarmCallback callback);
-    Simple_INA238 & setOnMemoryChecksumErrorCallback(OnAlarmCallback callback);
+    Simple_INA238 & setOnAlarmCallback(OnAlarmCallback callback);
+    Simple_INA238 & setOnAlarmSoftwareCallback(OnAlarmEventCallback callback);
+    Simple_INA238 & setOnAlarmSensorsCallback(OnAlarmEventCallback callback);
+    Simple_INA238 & setOnMathOverflowCallback(OnAlarmEventCallback callback);
+    Simple_INA238 & setOnTemperatureOverCallback(OnAlarmEventCallback callback);
+    Simple_INA238 & setOnShuntOverVoltageCallback(OnAlarmEventCallback callback);
+    Simple_INA238 & setOnShuntUnderVoltageCallback(OnAlarmEventCallback callback);
+    Simple_INA238 & setOnBusOverVoltageCallback(OnAlarmEventCallback callback);
+    Simple_INA238 & setOnBusUnderVoltageCallback(OnAlarmEventCallback callback);
+    Simple_INA238 & setOnPowerOverlimitCallback(OnAlarmEventCallback callback);
+    Simple_INA238 & setOnConversionReadyCallback(OnAlarmEventCallback callback);
+    Simple_INA238 & setOnMemoryChecksumErrorCallback(OnAlarmEventCallback callback);
 
   private:
     // Callback members:
     OnAlarmCallback onAlarmCallback;
-    OnAlarmCallback onAlarmSoftwareCallback;
-    OnAlarmCallback onAlarmSensorsCallback;
-    OnAlarmCallback onMathOverflowCallback;
-    OnAlarmCallback onTemperatureOverCallback;
-    OnAlarmCallback onShuntOverVoltageCallback;
-    OnAlarmCallback onShuntUnderVoltageCallback;
-    OnAlarmCallback onBusOverVoltageCallback;
-    OnAlarmCallback onBusUnderVoltageCallback;
-    OnAlarmCallback onPowerOverlimitCallback;
-    OnAlarmCallback onConversionReadyCallback;
-    OnAlarmCallback onMemoryChecksumErrorCallback;
+    OnAlarmEventCallback onAlarmSoftwareCallback;
+    OnAlarmEventCallback onAlarmSensorsCallback;
+    OnAlarmEventCallback onMathOverflowCallback;
+    OnAlarmEventCallback onTemperatureOverCallback;
+    OnAlarmEventCallback onShuntOverVoltageCallback;
+    OnAlarmEventCallback onShuntUnderVoltageCallback;
+    OnAlarmEventCallback onBusOverVoltageCallback;
+    OnAlarmEventCallback onBusUnderVoltageCallback;
+    OnAlarmEventCallback onPowerOverlimitCallback;
+    OnAlarmEventCallback onConversionReadyCallback;
+    OnAlarmEventCallback onMemoryChecksumErrorCallback;
 };
 
 #endif // SIMPLE_INA238_H

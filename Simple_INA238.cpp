@@ -430,7 +430,7 @@ uint16_t Simple_INA238::Alert()
     {
         yield();
         //  Serial.DPRINTBINX("Diag Alert^1 :  ",alarm,true);
-        onAlarmCallback();
+        onAlarmCallback(LastAlert);  // Pass as uint16_t
     }
 
     if ((LastAlert & alarmMaskSoftware) && (onAlarmSoftwareCallback))
@@ -514,78 +514,78 @@ uint16_t Simple_INA238::Alert()
 }
 
 // General alarm callback
-Simple_INA238 &Simple_INA238::setOnAlarmCallbackFunction(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnAlarmCallback(OnAlarmCallback callback)
 {
     onAlarmCallback = callback;
     return *this;
 }
 
-Simple_INA238 &Simple_INA238::setOnAlarmSoftwareCallbackFunction(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnAlarmSoftwareCallback(OnAlarmEventCallback callback)
 {
     onAlarmSoftwareCallback = callback;
     return *this;
 }
 
-Simple_INA238 &Simple_INA238::setOnAlarmSensorsCallbackFunction(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnAlarmSensorsCallback(OnAlarmEventCallback callback)
 {
     onAlarmSensorsCallback = callback;
     return *this;
 }
 
 // Math Overflow
-Simple_INA238 &Simple_INA238::setOnMathOverflowCallback(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnMathOverflowCallback(OnAlarmEventCallback callback)
 {
     onMathOverflowCallback = callback;
     return *this;
 }
 // Temperature Callbacks
-Simple_INA238 &Simple_INA238::setOnTemperatureOverCallback(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnTemperatureOverCallback(OnAlarmEventCallback callback)
 {
     onTemperatureOverCallback = callback;
     return *this;
 }
 
 // Shumt Voltage Callbacks
-Simple_INA238 &Simple_INA238::setOnShuntOverVoltageCallback(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnShuntOverVoltageCallback(OnAlarmEventCallback callback)
 {
     onShuntOverVoltageCallback = callback;
     return *this;
 }
 
-Simple_INA238 &Simple_INA238::setOnShuntUnderVoltageCallback(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnShuntUnderVoltageCallback(OnAlarmEventCallback callback)
 {
     onShuntUnderVoltageCallback = callback;
     return *this;
 }
 
 // Bus Voltage Callbacks
-Simple_INA238 &Simple_INA238::setOnBusOverVoltageCallback(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnBusOverVoltageCallback(OnAlarmEventCallback callback)
 {
     onBusOverVoltageCallback = callback;
     return *this;
 }
 
-Simple_INA238 &Simple_INA238::setOnBusUnderVoltageCallback(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnBusUnderVoltageCallback(OnAlarmEventCallback callback)
 {
     onBusUnderVoltageCallback = callback;
     return *this;
 }
 
 // Power Callbacks
-Simple_INA238 &Simple_INA238::setOnPowerOverlimitCallback(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnPowerOverlimitCallback(OnAlarmEventCallback callback)
 {
     onPowerOverlimitCallback = callback;
     return *this;
 }
 
 // Conversion Ready Callback
-Simple_INA238 &Simple_INA238::setOnConversionReadyCallback(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnConversionReadyCallback(OnAlarmEventCallback callback)
 {
     onConversionReadyCallback = callback;
     return *this;
 }
 // Memory Checksum Error Callback
-Simple_INA238 &Simple_INA238::setOnMemoryChecksumErrorCallback(OnAlarmCallback callback)
+Simple_INA238 &Simple_INA238::setOnMemoryChecksumErrorCallback(OnAlarmEventCallback callback)
 {
     onMemoryChecksumErrorCallback = callback;
     return *this;
